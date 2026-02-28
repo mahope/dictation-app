@@ -1,11 +1,37 @@
 # dictation-app
 
-Script that allows me to dictate and transcribe into any input.
+System-wide dictation tool for Windows. Press a hotkey to record, press again to stop — the transcription is pasted into the active text field.
 
-Run `python dictation.py` to start.
+## Usage
 
-Hotkey: `Ctrl+Shift+D`
+```
+python dictation.py
+```
 
-Model: `gpt-4o-mini-transcribe`
+A small pill-shaped overlay appears in the top-right corner of the screen:
 
-Press `Ctrl+C` to quit
+- **Grey** — idle, ready to record
+- **Red (pulsing) "REC"** — recording
+- **Amber (animated dots)** — transcribing
+
+The overlay never steals focus from your active window.
+
+## Hotkey
+
+`Ctrl+Shift+D` — toggle recording on/off
+
+## Language
+
+Supports both **Danish** and **English** — speak in either language and the transcription follows automatically.
+
+## Model
+
+`gpt-4o-transcribe` via the OpenAI API.
+
+## Configuration
+
+Copy `.env.example` to `.env` and set your `OPENAI_API_KEY`.
+
+## Quit
+
+Press `Ctrl+C` in the terminal, or close the terminal window.
