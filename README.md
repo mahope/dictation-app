@@ -8,17 +8,34 @@ System-wide dictation tool for Windows. Press a hotkey to record, press again to
 python dictation.py
 ```
 
-A small pill-shaped overlay appears in the top-right corner of the screen:
+A small equalizer overlay appears in the top-right corner of the screen (draggable):
 
 - **Grey** — idle, ready to record
-- **Red (pulsing) "REC"** — recording
-- **Amber (animated dots)** — transcribing
+- **Red (live audio bars)** — recording
+- **Amber (wave animation)** — transcribing
+- **Green flash** — text pasted successfully
 
-The overlay never steals focus from your active window.
+The overlay never steals focus from your active window. Double-click it to copy the last transcription.
 
-## Hotkey
+## Hotkeys
 
-`Ctrl+Shift+D` — toggle recording on/off
+| Shortcut | Action |
+|---|---|
+| `Ctrl+Shift+D` | Toggle recording on/off |
+| `Ctrl+Shift+Space` | Hold to record, release to stop |
+| `Ctrl+Shift+H` | Show transcription history |
+| `Ctrl+Shift+Escape` | Cancel current recording |
+
+## System Tray
+
+Right-click the tray icon for:
+
+- Show/hide overlay
+- Smart formatting toggle (punctuation cleanup via gpt-4o-mini)
+- Auto-stop on silence toggle
+- Microphone selection
+- Start at Windows startup
+- History / export / clear
 
 ## Language
 
@@ -26,12 +43,14 @@ Supports both **Danish** and **English** — speak in either language and the tr
 
 ## Model
 
-`gpt-4o-transcribe` via the OpenAI API.
+`gpt-4o-transcribe` via the OpenAI API, with optional `gpt-4o-mini` post-processing for punctuation and spoken commands.
 
 ## Configuration
 
 Copy `.env.example` to `.env` and set your `OPENAI_API_KEY`.
 
+Settings (microphone, formatting, overlay position, etc.) are saved automatically to `config.json`.
+
 ## Quit
 
-Press `Ctrl+C` in the terminal, or close the terminal window.
+Right-click the tray icon and select Quit, press `Ctrl+C` in the terminal, or close the terminal window.

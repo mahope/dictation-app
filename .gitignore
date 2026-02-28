@@ -2,3 +2,6 @@
 __pycache__/
 *.pyc
 .DS_Store
+history.json
+config.json
+dictation.log
