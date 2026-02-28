@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """
-System-wide macOS dictation tool.
+System-wide Windows dictation tool.
 
-Press Cmd+Shift+D to start recording, press again to stop.
+Press Ctrl+Shift+D to start recording, press again to stop.
 Transcribes via OpenAI Whisper API and pastes into the active text input.
 """
 
+import ctypes
+from ctypes import wintypes
 import os
 import sys
 import subprocess
 import tempfile
 import threading
 import time
+import winsound
 
 import numpy as np
 import scipy.io.wavfile as wavfile
@@ -32,8 +35,8 @@ if not OPENAI_API_KEY or OPENAI_API_KEY == "your-api-key-here":
     sys.exit(1)
 
 SAMPLE_RATE = 16000  # 16 kHz mono — what Whisper expects
-MODEL = "gpt-4o-mini-transcribe"
-HOTKEY = "<cmd>+<shift>+d"
+MODEL = "gpt-4o-transcribe"
+HOTKEY = "<ctrl>+<shift>+d"
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -51,30 +54,32 @@ lock = threading.Lock()
 # ---------------------------------------------------------------------------
 
 def play_sound(name: str) -> None:
-    """Play a macOS system sound using NSSound (works reliably from background scripts)."""
+    """Play a Windows system sound asynchronously."""
+    # Map friendly names to Windows system sounds
+    sounds = {
+        "Bottle": "SystemExclamation",
+    }
+    alias = sounds.get(name, "SystemDefault")
     try:
-        from AppKit import NSSound
-        sound = NSSound.alloc().initWithContentsOfFile_byReference_(
-            f"/System/Library/Sounds/{name}.aiff", True
-        )
-        if sound:
-            sound.play()
-    except ImportError:
-        # Fallback to afplay if AppKit not available
-        def _play():
-            path = f"/System/Library/Sounds/{name}.aiff"
-            if os.path.exists(path):
-                subprocess.run(["afplay", path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        threading.Thread(target=_play, daemon=True).start()
+        winsound.PlaySound(alias, winsound.SND_ALIAS | winsound.SND_ASYNC)
+    except Exception:
+        pass
 
 
 def notify(title: str, message: str) -> None:
-    """Show a macOS notification banner."""
-    script = (
-        f'display notification "{message}" with title "{title}"'
+    """Show a Windows toast notification."""
+    # Use PowerShell to trigger a Windows toast notification
+    ps_script = (
+        "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; "
+        "[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime] | Out-Null; "
+        f"$xml = '<toast><visual><binding template=\"ToastText02\"><text id=\"1\">{title}</text><text id=\"2\">{message}</text></binding></visual></toast>'; "
+        "$doc = New-Object Windows.Data.Xml.Dom.XmlDocument; "
+        "$doc.LoadXml($xml); "
+        "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Dictation Tool').Show("
+        "[Windows.UI.Notifications.ToastNotification]::new($doc))"
     )
     subprocess.Popen(
-        ["osascript", "-e", script],
+        ["powershell", "-NoProfile", "-Command", ps_script],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -93,8 +98,8 @@ def start_recording() -> None:
     global stream, audio_chunks
     audio_chunks = []
     play_sound("Bottle")
-    notify("Dictation", "🎙 Recording… press Cmd+Shift+D to stop")
-    print("🎙  Recording… press Cmd+Shift+D to stop")
+    notify("Dictation", "Recording... press Ctrl+Shift+D to stop")
+    print("Recording... press Ctrl+Shift+D to stop")
     # Delay so the sound finishes before the audio input stream takes over
     time.sleep(0.8)
     stream = sd.InputStream(
@@ -113,8 +118,8 @@ def stop_recording() -> None:
         stream.close()
         stream = None
     play_sound("Bottle")
-    notify("Dictation", "⏹ Stopped — transcribing…")
-    print("⏹  Stopped recording — transcribing…")
+    notify("Dictation", "Stopped - transcribing...")
+    print("Stopped recording - transcribing...")
 
 # ---------------------------------------------------------------------------
 # Transcription
@@ -130,32 +135,69 @@ def transcribe(audio: np.ndarray) -> str:
             model=MODEL,
             file=f,
             response_format="text",
+            language="da",
         )
 
     os.remove(tmp)
     return result.strip() if isinstance(result, str) else result.text.strip()
 
 # ---------------------------------------------------------------------------
-# Text injection (clipboard + Cmd+V, then restore)
+# Text injection (clipboard + Ctrl+V, then restore)
 # ---------------------------------------------------------------------------
 
+_CF_UNICODETEXT = 13
+_GMEM_MOVEABLE = 0x0002
+_user32 = ctypes.windll.user32
+_kernel32 = ctypes.windll.kernel32
+_kernel32.GlobalAlloc.restype = ctypes.c_void_p
+_kernel32.GlobalAlloc.argtypes = [wintypes.UINT, ctypes.c_size_t]
+_kernel32.GlobalLock.restype = ctypes.c_void_p
+_kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+_kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+_user32.GetClipboardData.restype = ctypes.c_void_p
+_user32.GetClipboardData.argtypes = [wintypes.UINT]
+_user32.SetClipboardData.argtypes = [wintypes.UINT, ctypes.c_void_p]
+
+
 def _get_clipboard() -> str:
-    """Read current clipboard contents (plain text)."""
+    """Read current clipboard contents (plain text, Unicode-safe via Win32)."""
     try:
-        r = subprocess.run(["pbpaste"], capture_output=True, text=True, timeout=2)
-        return r.stdout
+        _user32.OpenClipboard(0)
+        h = _user32.GetClipboardData(_CF_UNICODETEXT)
+        if h:
+            p = _kernel32.GlobalLock(h)
+            text = ctypes.wstring_at(p)
+            _kernel32.GlobalUnlock(h)
+        else:
+            text = ""
+        _user32.CloseClipboard()
+        return text
     except Exception:
+        try:
+            _user32.CloseClipboard()
+        except Exception:
+            pass
         return ""
 
 
 def _set_clipboard(text: str) -> None:
-    """Write text to the clipboard."""
+    """Write text to the clipboard (Unicode-safe via Win32)."""
     try:
-        subprocess.run(
-            ["pbcopy"], input=text, text=True, timeout=2, check=True,
-        )
+        _user32.OpenClipboard(0)
+        _user32.EmptyClipboard()
+        data = text.encode("utf-16-le") + b"\x00\x00"
+        h = _kernel32.GlobalAlloc(_GMEM_MOVEABLE, len(data))
+        p = _kernel32.GlobalLock(h)
+        ctypes.memmove(p, data, len(data))
+        _kernel32.GlobalUnlock(h)
+        _user32.SetClipboardData(_CF_UNICODETEXT, h)
+        _user32.CloseClipboard()
     except Exception as e:
-        print(f"pbcopy error: {e}", file=sys.stderr)
+        try:
+            _user32.CloseClipboard()
+        except Exception:
+            pass
+        print(f"Clipboard error: {e}", file=sys.stderr)
 
 
 def inject_text(text: str) -> None:
@@ -165,9 +207,9 @@ def inject_text(text: str) -> None:
     _set_clipboard(text)
     time.sleep(0.05)  # let pasteboard propagate
 
-    # Simulate Cmd+V
+    # Simulate Ctrl+V
     kb = keyboard.Controller()
-    with kb.pressed(keyboard.Key.cmd):
+    with kb.pressed(keyboard.Key.ctrl):
         kb.press("v")
         kb.release("v")
 
@@ -195,15 +237,15 @@ def _process_recording() -> None:
     try:
         text = transcribe(audio)
         if text:
-            print(f"✅ Transcribed: {text}")
+            print(f"Transcribed: {text}")
             # Show a short preview in the notification
-            preview = text[:80] + ("…" if len(text) > 80 else "")
-            notify("Dictation", f"✅ {preview}")
+            preview = text[:80] + ("..." if len(text) > 80 else "")
+            notify("Dictation", preview)
             inject_text(text)
         else:
-            print("⚠️  Empty transcription result.", file=sys.stderr)
+            print("Empty transcription result.", file=sys.stderr)
     except Exception as e:
-        print(f"❌ Transcription error: {e}", file=sys.stderr)
+        print(f"Transcription error: {e}", file=sys.stderr)
 
 
 def on_toggle() -> None:

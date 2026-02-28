@@ -1,10 +1,11 @@
 # dictation-app
-Script that allows me to dictate and transcribe into any input
 
-Run `python3 ~/Documents/GitHub/dictation-app/dictation.py` to start.
+Script that allows me to dictate and transcribe into any input.
 
-Hotkey: `<cmd>+<shift>+d`
+Run `python dictation.py` to start.
 
-Model:  `gpt-4o-mini-transcribe`
+Hotkey: `Ctrl+Shift+D`
+
+Model: `gpt-4o-mini-transcribe`
 
 Press `Ctrl+C` to quit
