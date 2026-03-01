@@ -5,3 +5,9 @@ __pycache__/
 history.json
 config.json
 dictation.log
+icon.ico
+
+# PyInstaller
+build/
+dist/
+*.spec
