@@ -14,11 +14,65 @@ from .engine import DictationEngine, initialize_openai
 from .hotkeys import HotkeyManager
 from .overlay import DictationOverlay
 import dictation.overlay as _overlay_mod
-from .settings_gui import SettingsWindow
-from .tray import setup_tray
+
+
+def _run_headless() -> None:
+    """Run in headless IPC mode (used as Tauri sidecar)."""
+    from .ipc import JsonIpc
+
+    # Redirect all print() to stderr so stdout is clean for IPC
+    sys.stdout = sys.stderr
+
+    load_dotenv(ENV_FILE)
+    config = ConfigManager()
+    _overlay_mod.quiet_mode = config.get("quiet", False)
+
+    ipc = JsonIpc(config)
+
+    # Create overlay (tkinter) — still needed for visual feedback
+    overlay = DictationOverlay(config)
+    ipc.set_overlay(overlay)
+
+    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    has_valid_key = bool(api_key) and api_key != "your-api-key-here"
+
+    if has_valid_key:
+        initialize_openai(api_key)
+        engine = DictationEngine(overlay, config)
+        config.add_listener(engine.on_config_changed)
+        ipc.set_engine(engine)
+
+        hotkeys = HotkeyManager(engine)
+        hotkeys.start()
+
+    # Start reading IPC commands from stdin
+    ipc.start_reader()
+
+    # Signal readiness
+    ipc.emit("ready")
+    if has_valid_key:
+        ipc.emit_config()
+
+    print("Headless engine started.", file=sys.stderr, flush=True)
+
+    try:
+        overlay.run()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        config.save()
+        print("Headless engine exited.", file=sys.stderr, flush=True)
 
 
 def main() -> None:
+    # Check for --headless flag (sidecar mode)
+    if "--headless" in sys.argv:
+        _run_headless()
+        return
+
+    from .settings_gui import SettingsWindow
+    from .tray import setup_tray
+
     # Load .env
     load_dotenv(ENV_FILE)
 

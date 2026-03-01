@@ -1,0 +1,16 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for dictation app",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:allow-spawn",
+    "shell:allow-stdin-write",
+    "shell:allow-kill",
+    "shell:default",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-close",
+    "core:window:allow-set-focus"
+  ]
+}

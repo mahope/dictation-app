@@ -11,3 +11,9 @@ icon.ico
 build/
 dist/
 *.spec
+
+# Tauri / Node
+dictation-app/node_modules/
+dictation-app/dist/
+dictation-app/src-tauri/target/
+dictation-app/src-tauri/binaries/*.exe

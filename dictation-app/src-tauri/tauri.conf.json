@@ -1,0 +1,52 @@
+{
+  "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-config-schema/schema.json",
+  "productName": "Dictation",
+  "version": "1.0.0",
+  "identifier": "com.dictation.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Dictation Settings",
+        "width": 520,
+        "height": 580,
+        "minWidth": 460,
+        "minHeight": 420,
+        "center": true,
+        "resizable": true,
+        "visible": false,
+        "decorations": true,
+        "transparent": false
+      }
+    ],
+    "trayIcon": {
+      "iconPath": "icons/icon.ico",
+      "iconAsTemplate": false,
+      "tooltip": "Dictation"
+    },
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon.ico"
+    ],
+    "externalBin": [
+      "binaries/dictation-engine"
+    ]
+  },
+  "plugins": {
+    "shell": {
+      "open": true
+    }
+  }
+}
