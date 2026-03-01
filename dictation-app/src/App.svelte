@@ -1,15 +1,15 @@
 <script lang="ts">
   import { getCurrentWindow } from "@tauri-apps/api/window";
+  import { listen } from "@tauri-apps/api/event";
   import { readConfig } from "./lib/api";
-  import type { Config } from "./lib/types";
-  import TabBar from "./components/TabBar.svelte";
-  import ApiKeyTab from "./components/ApiKeyTab.svelte";
-  import SettingsTab from "./components/SettingsTab.svelte";
-  import HistoryTab from "./components/HistoryTab.svelte";
-  import AboutTab from "./components/AboutTab.svelte";
+  import type { Config, SidecarEvent } from "./lib/types";
+  import Sidebar from "./components/Sidebar.svelte";
+  import HomePage from "./components/HomePage.svelte";
+  import SettingsPage from "./components/SettingsPage.svelte";
+  import HistoryPage from "./components/HistoryPage.svelte";
+  import ApiKeyPage from "./components/ApiKeyPage.svelte";
 
-  const tabs = ["API Key", "Settings", "History", "About"];
-  let activeTab = $state(0);
+  let activePage = $state("home");
 
   let config = $state<Config>({
     smart_format: true,
@@ -27,10 +27,27 @@
     log_to_file: false,
   });
 
+  let stats = $state({ count: 0, words: 0, history: 0 });
+  let engineState = $state("idle");
+
   $effect(() => {
     readConfig().then((c) => {
       config = c;
     });
+  });
+
+  // Listen for sidecar events
+  $effect(() => {
+    const unlisten = listen<SidecarEvent>("sidecar-event", (event) => {
+      const data = event.payload;
+      if (data.event === "stats" && data.data) stats = data.data;
+      if (data.event === "config" && data.data) config = data.data;
+      if (data.event === "state_changed" && data.state)
+        engineState = data.state;
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
   });
 
   // Hide window instead of closing (keep app in tray)
@@ -46,18 +63,18 @@
   });
 </script>
 
-<div class="flex flex-col h-screen bg-bg">
-  <TabBar {tabs} active={activeTab} onselect={(i) => (activeTab = i)} />
+<div class="flex h-screen bg-bg">
+  <Sidebar active={activePage} onnavigate={(p) => (activePage = p)} />
 
-  <div class="flex-1 overflow-hidden">
-    {#if activeTab === 0}
-      <ApiKeyTab />
-    {:else if activeTab === 1}
-      <SettingsTab bind:config />
-    {:else if activeTab === 2}
-      <HistoryTab />
-    {:else}
-      <AboutTab />
+  <main class="flex-1 overflow-hidden">
+    {#if activePage === "home"}
+      <HomePage {stats} {engineState} />
+    {:else if activePage === "settings"}
+      <SettingsPage bind:config />
+    {:else if activePage === "history"}
+      <HistoryPage />
+    {:else if activePage === "api-key"}
+      <ApiKeyPage />
     {/if}
-  </div>
+  </main>
 </div>
