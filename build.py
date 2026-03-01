@@ -33,6 +33,7 @@ def main():
         "--hidden-import", "pystray._win32",
         "--hidden-import", "scipy.io.wavfile",
         "--hidden-import", "scipy.io",
+        "--collect-submodules", "dictation",
         "dictation.py",
     ]
 
@@ -45,8 +46,8 @@ def main():
         print(f"Size: {size_mb:.1f} MB")
         print("\nTo use:")
         print("  1. Copy Dictation.exe wherever you like")
-        print("  2. Place a .env file next to it with your OPENAI_API_KEY")
-        print("  3. Double-click to run!")
+        print("  2. Double-click to run!")
+        print("  3. Enter your OpenAI API key in the Settings window")
     else:
         print("Build failed - exe not found.", file=sys.stderr)
         sys.exit(1)
