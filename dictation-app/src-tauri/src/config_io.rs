@@ -3,18 +3,20 @@ use std::fs;
 use std::path::PathBuf;
 
 fn project_root() -> PathBuf {
-    // In dev: src-tauri/../../ (project root where config.json lives)
-    // In prod: next to the exe
-    let exe = std::env::current_exe().unwrap_or_default();
     if cfg!(debug_assertions) {
         // dev mode – config.json is at repo root (two levels up from src-tauri)
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .and_then(|p| p.parent())
             .map(|p| p.to_path_buf())
-            .unwrap_or_else(|| exe.parent().unwrap_or(&exe).to_path_buf())
+            .unwrap_or_default()
     } else {
-        exe.parent().unwrap_or(&exe).to_path_buf()
+        // prod – use %APPDATA%\Dictation (writable user directory)
+        let dir = dirs::config_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("Dictation");
+        let _ = fs::create_dir_all(&dir);
+        dir
     }
 }
 

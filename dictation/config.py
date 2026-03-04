@@ -10,11 +10,17 @@ import winreg
 # so that .env / config.json / history.json stay next to the executable.
 # ---------------------------------------------------------------------------
 
-if getattr(sys, "frozen", False):
-    # PyInstaller onefile: exe location
-    _DIR = os.path.dirname(sys.executable)
-else:
-    _DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+def _resolve_dir():
+    # Allow explicit override via --data-dir (used by Tauri sidecar)
+    for i, arg in enumerate(sys.argv):
+        if arg == "--data-dir" and i + 1 < len(sys.argv):
+            return sys.argv[i + 1]
+    if getattr(sys, "frozen", False):
+        # PyInstaller onefile: exe location
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+_DIR = _resolve_dir()
 
 HISTORY_FILE = os.path.join(_DIR, "history.json")
 HISTORY_MAX = 200

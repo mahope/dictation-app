@@ -8,12 +8,31 @@ pub struct SidecarState {
     pub child: Mutex<Option<CommandChild>>,
 }
 
+fn data_dir() -> String {
+    if cfg!(debug_assertions) {
+        // dev mode – repo root is two levels up from src-tauri/
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(|p| p.parent())
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default()
+    } else {
+        // prod – use %APPDATA%\Dictation (same as config_io)
+        let dir = dirs::config_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("Dictation");
+        let _ = std::fs::create_dir_all(&dir);
+        dir.to_string_lossy().to_string()
+    }
+}
+
 pub fn spawn_sidecar(app: &AppHandle) -> Result<(), String> {
     let shell = app.shell();
+    let dir = data_dir();
     let (mut rx, child) = shell
         .sidecar("dictation-engine")
         .map_err(|e| format!("sidecar command: {e}"))?
-        .args(["--headless"])
+        .args(["--headless", "--data-dir", &dir])
         .spawn()
         .map_err(|e| format!("spawn sidecar: {e}"))?;
 
